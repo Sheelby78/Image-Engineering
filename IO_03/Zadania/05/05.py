@@ -1,70 +1,91 @@
-class Product:
-    name = None
-    price = None
-    quantity = None
+import cv2 as cv
+import numpy as np
+from matplotlib import pyplot as plt
 
-    def __init__(self, name, price, quantity):
-        self.name = name
-        self.price = price
-        self.quantity = quantity
+plt.rcParams["figure.figsize"] = (18, 10)
+image = cv.imread("images/example.png",)
 
-    def __str__(self):
-        return self.name + " " + str(self.price)
+values = [
+    [0.229, 0.587, 0.114],
+    [0.500, -0.418, -0.082],
+    [-0.168, -0.331, 0.500],
+]
 
-class Cart:
+to_sum = [
+    [0],
+    [128],
+    [128],
+]
 
-    List = [Product('Pomidor', 10, 2), Product('Jablko', 2, 1), Product('Gruszka', 3, 3), Product('Ogorek', 2, 1),
-            Product('Marchew', 15, 2)]
+image = cv.cvtColor(image, cv.COLOR_BGR2RGB)
+image2 = image.reshape((-1,3))
 
-    def add(self, name):
-        for i in self.List:
-            if i.name == name:
-                i.quantity += 1
-                break
+converted_image = []
 
-    def remove(self, name):
-        for i in self.List:
-            if i.name == name and i.quantity != 0:
-                i.quantity -= 1
-                if i.quantity == 0:
-                    self.List.remove(i)
-                break
-    def total_price(self):
-        total = 0
-        for i in self.List:
-            total += i.quantity * i.price
-        return total
+for row in image2:
+    converted_row = np.matmul(values, row.reshape(3,1))
+    converted_row = np.add(to_sum, converted_row)
+    converted_image.append(converted_row.reshape(1,3))
 
-    def __str__(self):
-        Content = ""
-        for i in self.List:
-            Content += i.name + " " + str(i.quantity) + ", "
-        return Content
+converted_image = np.asarray(converted_image)
+converted_image = np.clip(converted_image, 0, 255)
+converted_image = converted_image.reshape(image.shape)
 
-    def __len__(self):
-        total = 0
-        for i in self.List:
-            total += i.quantity
-        return total
-
-    def __iter__(self):
-        self.currentIndex = 0
-        return self
-
-    def __next__(self):
-        if self.currentIndex < len(self.List):
-            x = self.List[self.currentIndex]
-            self.currentIndex += 1
-            return x
-        raise StopIteration
+Y = []
+Cb = []
+Cr = []
 
 
+for i in range(len(converted_image)):
+    Y_help = []
+    Cb_help = []
+    Cr_help = []
+    for j in range(len(converted_image[0])):
+        Y_help.append(converted_image[i][j][0])
+        if i % 2 == 0 and j % 2 == 0:
+            Cb_help.append(converted_image[i][j][1])
+            Cr_help.append(converted_image[i][j][2])
+    Y.append(Y_help)
+    if Cb_help:
+        Cb.append(Cb_help)
+        Cr.append(Cr_help)
 
-koszyk = Cart()
-p = Product('Orzech', 20, 2)
-print(str(p))
-print(str(koszyk))
-print(len(koszyk))
+up_scaled = converted_image.copy()
 
-for produkt in koszyk:
-    print(produkt)
+Cb_up = []
+Cr_up = []
+for i in range(len(Cb)):
+    Cb_help = []
+    Cr_help = []
+    for j in range(len(Cb[i])):
+        Cb_help.append(Cb[i][j])
+        Cb_help.append(Cb[i][j])
+        Cr_help.append(Cr[i][j])
+        Cr_help.append(Cr[i][j])
+    Cb_up.append(Cb_help)
+    Cb_up.append(Cb_help)
+    Cr_up.append(Cr_help)
+    Cr_up.append(Cr_help)
+
+for i in range(len(converted_image)):
+    for j in range(len(converted_image[0])):
+        up_scaled[i][j][0] = Y[i][j]
+        up_scaled[i][j][1] = Cb_up[i][j]
+        up_scaled[i][j][2] = Cr_up[i][j]
+
+
+up_scaled = np.asarray(up_scaled)
+up_scaled = up_scaled.astype(np.uint8)
+up_scaled = up_scaled.reshape(image.shape)
+up_scaled = cv.cvtColor(up_scaled, cv.COLOR_YCrCb2RGB)
+
+sum = 0
+
+for i in range(len(image)):
+    for j in range(len(image[0])):
+        sum += pow(np.float32(image[i][j][0]) - np.float32(up_scaled[i][j][0]), 2)
+        sum += pow(np.float32(image[i][j][1]) - np.float32(up_scaled[i][j][1]), 2)
+        sum += pow(np.float32(image[i][j][2]) - np.float32(up_scaled[i][j][2]), 2)
+
+MSE = 1/3 * 1/(len(image)*len(image[0])) * sum
+print("MSE = ", MSE)

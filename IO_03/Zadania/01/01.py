@@ -18,5 +18,4 @@ filtered_image = cv.filter2D(image, -1, kernel=kernel)
 plt.imshow(filtered_image)
 
 plt.show()
-print(type(image), image.shape)
 
